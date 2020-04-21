@@ -9,5 +9,7 @@ DEBUG = True
 # Connect to the database
 
 
-# TODO IMPLEMENT DATABASE URL
-SQLALCHEMY_DATABASE_URI = '<Put your local database url>'
+# IMPLEMENT DATABASE URL 
+SQLALCHEMY_DATABASE_URI = 'postgres://nikol:hallo@localhost:5432/fyyur'
+#--> As there doesn't seem to be a possibility to use psql without password on a Windows machine, I added a user 'nikol' with pw 'hallo' 
+SQLALCHEMY_TRACK_MODIFICATIONS = False
