@@ -3,7 +3,7 @@
 {% block content %}
   <div class="form-wrapper">
     <form class="form" method="post" action="/venues/{{venue.id}}/edit">
-      <h3 class="form-heading">Edit venue <em>{{ venue.name }}</em> <a href="{{ url_for('index') }}" title="Back to homepage"><i class="fa fa-home pull-right"></i></a></h3>
+      <h3 class="form-heading">Edit venue <em>{{ venue.name }}</em> <button id="delete-button" class="btn btn-primary btn-sm pull-right" title="Delete Venue"><i class="fa fa-trash"></i></button></h3>
       <div class="form-group">
         <label for="name">Name</label>
         {{ form.name(class_ = 'form-control', autofocus = true) }}
@@ -39,6 +39,11 @@
       </div>
 
       <div class="form-group">
+        <label for="homepage-link">Link to your homepage</label>
+        {{ form.homepage_link(class_ = 'form-control', placeholder='http://', id=form.state, autofocus = true) }}
+      </div>
+
+      <div class="form-group">
         <label for="image-link">Image Link</label>
         {{ form.image_link(class_ = 'form-control', placeholder='http://', autofocus=true)}}
       </div>
@@ -55,4 +60,20 @@
       <input type="submit" value="Edit Venue" class="btn btn-primary btn-lg btn-block">
     </form>
   </div>
+
+  <script>
+    document.getElementById('delete-button').onclick = function(e) {
+      e.preventDefault();
+      fetch('/venues/{{ venue.id }}', {
+        method: 'DELETE',
+        redirect: 'follow'
+      }).then(response => {
+        // HTTP 301 response
+        // HOW CAN I FOLLOW THE HTTP REDIRECT RESPONSE?
+        if (response.redirected) {
+            window.location.href = response.url;
+        }
+    });
+    }
+  </script>
 {% endblock %}

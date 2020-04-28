@@ -125,7 +125,11 @@ class VenueForm(Form):
 
     seeking_description = StringField(
         'seeking_description',
-        widget=TextArea()
+        widget=TextArea(), validators=[]
+    )
+
+    homepage_link = StringField(
+        'homepage_link', validators=[URL()]
     )
 
 class ArtistForm(Form):
@@ -238,6 +242,10 @@ class ArtistForm(Form):
     seeking_description = StringField(
         'seeking_description',
         widget=TextArea()
+    )
+
+    homepage_link = StringField(
+        'homepage_link', validators=[URL()]
     )
     
 
