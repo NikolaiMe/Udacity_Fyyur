@@ -6,8 +6,10 @@ import json
 import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
-from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from flask_moment import Moment
+from config import SQLALCHEMY_DATABASE_URI
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
@@ -22,6 +24,8 @@ from datetime import datetime
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
+engine = create_engine(SQLALCHEMY_DATABASE_URI)
+conn = engine.connect()
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
@@ -29,52 +33,7 @@ migrate = Migrate(app, db)
 # Models.
 #----------------------------------------------------------------------------#
 
-class Venue(db.Model):
-    __tablename__ = 'venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    address = db.Column(db.String(120), nullable=True)
-    phone = db.Column(db.String(120), nullable=True)
-    genres = db.Column(db.ARRAY(db.String()), nullable=False)
-    image_link = db.Column(db.String(500), nullable=True)
-    facebook_link = db.Column(db.String(120), nullable=True)
-    seeking = db.Column(db.Boolean, nullable=False, default=False)
-    seeking_description = db.Column(db.String(), nullable=True)
-    homepage_link = db.Column(db.String(120), nullable=True)
-    shows = db.relationship('Show', backref='venue', cascade="all, delete-orphan", lazy=True)
-
-
-class Artist(db.Model):
-    __tablename__ = 'artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    city = db.Column(db.String(120), nullable=False)
-    state = db.Column(db.String(120), nullable=False)
-    phone = db.Column(db.String(120), nullable=True)
-    genres = db.Column(db.ARRAY(db.String()), nullable=False)
-    image_link = db.Column(db.String(500), nullable=True)
-    facebook_link = db.Column(db.String(120), nullable=True)
-    seeking = db.Column(db.Boolean, nullable=False, default=False)
-    seeking_description = db.Column(db.String(), nullable=True)
-    homepage_link = db.Column(db.String(120), nullable=True)
-    shows = db.relationship('Show', backref='artist', cascade="all, delete-orphan", lazy=True)
-
-    
-
-class Show(db.Model):
-  __tablename__ = 'show'
-
-  id = db.Column(db.Integer, primary_key = True)
-  venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable = False)
-  artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable = False)
-  date = db.Column(db.DateTime(), nullable = False )
-
-
-
+from models import *
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -106,9 +65,6 @@ def index():
 
 @app.route('/venues')
 def venues():
-  # TODO: replace with real venues data.
-  #       num_shows should be aggregated based on number of upcoming shows per venue.
-
   groups=db.session.query(Venue.city, Venue.state).group_by(Venue.city, Venue.state).order_by(Venue.state, Venue.city).all()
   data=[]
 
@@ -133,14 +89,20 @@ def venues():
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   searchdata = request.form.get('search_term', '')
-  venues = Venue.query.filter(Venue.name.ilike('%'+searchdata+'%')).all()
+
+  result = conn.execute('SELECT id, name FROM venue WHERE name ILIKE %s','%'+searchdata+'%')
+  venues = result.fetchall()
+  result.close()
   data = []
 
   for venue in venues:
+    result = conn.execute('SELECT COUNT(*) FROM show WHERE date < NOW() AND venue_id = %s;',venue[0])
+    num_upcoming_shows = result.fetchall()
+    result.close()
     data.append({
-      "id": venue.id,
-      "name": venue.name,
-      "num_upcoming_shows": len(venue.shows)
+      "id": venue[0],
+      "name": venue[1],
+      "num_upcoming_shows": num_upcoming_shows
     })
 
   response={
@@ -154,8 +116,15 @@ def show_venue(venue_id):
   
   try:
     venue = Venue.query.get(venue_id)
-    past_shows = Show.query.filter(Show.venue_id==venue_id).filter(Show.date<datetime.now()).order_by(Show.date)
-    upcoming_shows = Show.query.filter(Show.venue_id==venue_id).filter(Show.date>datetime.now()).order_by(Show.date)
+
+    # Corrected PostgreSQL Queries
+    past_shows = Venue.getPastShows(venue_id)
+    upcoming_shows = Venue.getUpcomingShows(venue_id)
+
+
+    # Deleted SQLAlchemy ORM Code
+    # past_shows = Show.query.filter(Show.venue_id==venue_id).filter(Show.date<datetime.now()).order_by(Show.date)
+    # upcoming_shows = Show.query.filter(Show.venue_id==venue_id).filter(Show.date>datetime.now()).order_by(Show.date)
 
     data={
       "id": venue.id,
@@ -172,8 +141,8 @@ def show_venue(venue_id):
       "image_link": venue.image_link,
       "past_shows": past_shows,
       "upcoming_shows": upcoming_shows,
-      "past_shows_count": past_shows.count(),
-      "upcoming_shows_count": upcoming_shows.count(),
+      "past_shows_count": len(past_shows),
+      "upcoming_shows_count": len(upcoming_shows)
     }
     return render_template('pages/show_venue.html', venue=data)
   except:
@@ -248,7 +217,6 @@ def delete_venue(venue_id):
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
-  # TODO: replace with real data returned from querying the database
   data=Artist.query.all()
 
   if data==None:
@@ -262,14 +230,19 @@ def artists():
 def search_artists():
   
   searchdata = request.form.get('search_term', '')
-  artists = Artist.query.filter(Artist.name.ilike('%'+searchdata+'%')).all()
+  result = conn.execute('SELECT id, name FROM artist WHERE name ILIKE %s','%'+searchdata+'%')
+  artists = result.fetchall()
+  result.close()
   data = []
 
   for artist in artists:
+    result = conn.execute('SELECT COUNT(*) FROM show WHERE date < NOW() AND artist_id = %s;',artist[0])
+    num_upcoming_shows = result.fetchall()
+    result.close()
     data.append({
-      "id": artist.id,
-      "name": artist.name,
-      "num_upcoming_shows": len(artist.shows)
+      "id": artist[0],
+      "name": artist[1],
+      "num_upcoming_shows": num_upcoming_shows
     })
 
   response={
@@ -283,8 +256,14 @@ def show_artist(artist_id):
 
   try:
     artist = Artist.query.get(artist_id)
-    past_shows = Show.query.filter(Show.artist_id==artist_id).filter(Show.date<datetime.now()).order_by(Show.date)
-    upcoming_shows = Show.query.filter(Show.artist_id==artist_id).filter(Show.date>datetime.now()).order_by(Show.date)
+
+    # Corrected PostgresSQL Queries
+    past_shows = Artist.getPastShows(artist_id)
+    upcoming_shows = Artist.getUpcomingShows(artist_id)
+    
+    # Deleted SQLAlchemy ORM Code
+    #past_shows =  Show.query.filter(Show.artist_id==artist_id).filter(Show.date<datetime.now()).order_by(Show.date)
+    #upcoming_shows = Show.query.filter(Show.artist_id==artist_id).filter(Show.date>datetime.now()).order_by(Show.date)
 
     data={
       "id": artist.id,
@@ -300,8 +279,8 @@ def show_artist(artist_id):
       "image_link": artist.image_link,
       "past_shows": past_shows,
       "upcoming_shows": upcoming_shows,
-      "past_shows_count":past_shows.count(),
-      "upcoming_shows_count": upcoming_shows.count()
+      "past_shows_count":len(past_shows),
+      "upcoming_shows_count": len(upcoming_shows)
     }
     return render_template('pages/show_artist.html', artist=data)
   except:
