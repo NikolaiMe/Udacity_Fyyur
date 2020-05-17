@@ -1,10 +1,11 @@
 import os
-from sqlalchemy import Column, String, Integer, create_engine
+import random
+from sqlalchemy import Column, String, Integer, create_engine, and_
 from flask_sqlalchemy import SQLAlchemy
 import json
 
 database_name = "trivia"
-database_path = "postgres://{}/{}".format('localhost:5432', database_name)
+database_path = "postgresql://{}:{}@{}/{}".format('nikol', 'hallo', 'localhost:5432', database_name)
 
 db = SQLAlchemy()
 
@@ -18,6 +19,7 @@ def setup_db(app, database_path=database_path):
     db.app = app
     db.init_app(app)
     db.create_all()
+    return db
 
 '''
 Question
@@ -57,6 +59,28 @@ class Question(db.Model):
       'category': self.category,
       'difficulty': self.difficulty
     }
+  
+
+  '''
+  Method to get one question, which fits to a given category and is not a question, contained in 'last_question'
+  '''
+  @staticmethod
+  def getRandomQuestion(last_questions, category):
+    questions = (Question.query
+                .filter_by(category = str(category))
+                .filter(and_(Question.id != question for question in last_questions))
+                .order_by(Question.id).all()
+      ) 
+    if len(questions)>1:
+      random_item = random.randrange(len(questions)-1)
+      question = questions[random_item].format()
+    elif len(questions)==1:
+      question = questions[0].format()
+    else:
+      question = None
+    
+    return question
+
 
 '''
 Category
@@ -76,3 +100,11 @@ class Category(db.Model):
       'id': self.id,
       'type': self.type
     }
+
+  def insert(self):
+    db.session.add(self)
+    db.session.commit()
+
+  def delete(self):
+    db.session.delete(self)
+    db.session.commit()

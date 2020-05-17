@@ -142,6 +142,9 @@ class TestPythonTimeBuilder(unittest.TestCase):
                       ({'hh': '23', 'mm': '21', 'ss': '28.512400'},
                        datetime.time(hour=23, minute=21, second=28,
                                      microsecond=512400)),
+                      ({'hh': '01', 'mm': '03', 'ss': '11.858714'},
+                       datetime.time(hour=1, minute=3, second=11,
+                                     microsecond=858714)),
                       ({'hh': '14', 'mm': '43', 'ss': '59.9999997'},
                        datetime.time(hour=14, minute=43, second=59,
                                      microsecond=999999)),
@@ -267,7 +270,11 @@ class TestPythonTimeBuilder(unittest.TestCase):
             PythonTimeBuilder.build_time(hh='24.1')
 
     def test_build_datetime(self):
-        testtuples = (((('1234', '2', '3', None, None, None, 'date'),
+        testtuples = (((('2019', '06', '05', None, None, None, 'date'),
+                        ('01', '03', '11.858714', None, 'time')),
+                       datetime.datetime(2019, 6, 5, hour=1, minute=3,
+                                         second=11, microsecond=858714)),
+                      ((('1234', '02', '03', None, None, None, 'date'),
                         ('23', '21', '28.512400', None, 'time')),
                        datetime.datetime(1234, 2, 3, hour=23, minute=21,
                                          second=28, microsecond=512400)),
@@ -363,6 +370,9 @@ class TestPythonTimeBuilder(unittest.TestCase):
                        datetime.timedelta(days=428.5)),
                       ({'TnH': '4', 'TnM': '54', 'TnS': '6.5'},
                        datetime.timedelta(hours=4, minutes=54, seconds=6.5)),
+                      ({'TnH': '1', 'TnM': '3', 'TnS': '11.858714'},
+                       datetime.timedelta(hours=1, minutes=3,
+                                          seconds=11, microseconds=858714)),
                       ({'TnH': '4', 'TnM': '54', 'TnS': '28.512400'},
                        datetime.timedelta(hours=4, minutes=54,
                                           seconds=28, microseconds=512400)),
@@ -948,53 +958,41 @@ class TestPythonTimeBuilder(unittest.TestCase):
                              datetime.date(year=2018, month=8, day=29)
                              + dateindex * datetime.timedelta(days=5))
 
-    def test_split_and_cast(self):
-        result = PythonTimeBuilder._split_and_cast('12.34', 'asdf')
+    def test_split_to_microseconds(self):
+        result = PythonTimeBuilder._split_to_microseconds('1.1', int(1e6), 'dummy')
 
-        self.assertEqual(result, (12, .34))
+        self.assertEqual(result, (1, 100000))
         self.assertIsInstance(result[0], int)
-        self.assertIsInstance(result[1], float)
+        self.assertIsInstance(result[1], int)
 
-        result = PythonTimeBuilder._split_and_cast('-12.34', 'asdf')
+        result = PythonTimeBuilder._split_to_microseconds('1.000001', int(1e6), 'dummy')
 
-        self.assertEqual(result, (-12, .34))
+        self.assertEqual(result, (1, 1))
         self.assertIsInstance(result[0], int)
-        self.assertIsInstance(result[1], float)
+        self.assertIsInstance(result[1], int)
 
-    def test_split_and_cast_exception(self):
+        result = PythonTimeBuilder._split_to_microseconds('1.0000001', int(1e6), 'dummy')
+
+        self.assertEqual(result, (1, 0))
+        self.assertIsInstance(result[0], int)
+        self.assertIsInstance(result[1], int)
+
+    def test_split_to_microseconds_exception(self):
         with self.assertRaises(ISOFormatError) as e:
-            PythonTimeBuilder._split_and_cast('12.df', 'asdf')
+            PythonTimeBuilder._split_to_microseconds('b.1', int(1e6), 'exception text')
 
-        self.assertEqual(str(e.exception), 'asdf')
+        self.assertEqual(str(e.exception), 'exception text')
 
         with self.assertRaises(ISOFormatError) as e:
-            PythonTimeBuilder._split_and_cast('as.12', 'asdf')
+            PythonTimeBuilder._split_to_microseconds('1.ad', int(1e6), 'exception text')
 
-        self.assertEqual(str(e.exception), 'asdf')
+        self.assertEqual(str(e.exception), 'exception text')
 
-    def test_split_and_convert(self):
-        result = PythonTimeBuilder._split_and_convert(12.5, 100)
+    def test_distribute_microseconds(self):
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(1, (), ()), (1,))
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(11, (0,), (10,)), (1, 1))
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(211, (0, 0), (100, 10)), (2, 1, 1))
 
-        self.assertEqual(result, (12, .5 * 100))
-        self.assertIsInstance(result[0], int)
-        self.assertIsInstance(result[1], float)
-
-        result = PythonTimeBuilder._split_and_convert(-12.5, 0.1)
-
-        self.assertEqual(result, (-12, -.5 * 0.1))
-        self.assertIsInstance(result[0], int)
-        self.assertIsInstance(result[1], float)
-
-    def test_truncate(self):
-        self.assertEqual(PythonTimeBuilder._truncate(0, 1), 0.0)
-        self.assertEqual(PythonTimeBuilder._truncate(1.0, 1), 1.0)
-        self.assertEqual(PythonTimeBuilder._truncate(0.1, 1), 0.1)
-        self.assertEqual(PythonTimeBuilder._truncate(0.01, 1), 0.0)
-        self.assertEqual(PythonTimeBuilder._truncate(0.0000000001, 1), 0.0)
-        self.assertEqual(PythonTimeBuilder._truncate(0.9999999999, 1), 0.9)
-        self.assertEqual(PythonTimeBuilder._truncate(0.000095, 5), 0.00009)
-        self.assertEqual(PythonTimeBuilder._truncate(0.00006, 4), 0.0000)
-        self.assertEqual(PythonTimeBuilder._truncate(0.00005, 4), 0.0000)
-        self.assertEqual(PythonTimeBuilder._truncate(0.000005, 5), 0.00000)
-        self.assertEqual(PythonTimeBuilder._truncate(0.00000051, 6), 0.000000)
-        self.assertEqual(PythonTimeBuilder._truncate(28.512400, 6), 28.512400)
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(1, (), ()), (1,))
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(11, (5,), (10,)), (6, 1))
+        self.assertEqual(PythonTimeBuilder._distribute_microseconds(211, (10, 5), (100, 10)), (12, 6, 1))
