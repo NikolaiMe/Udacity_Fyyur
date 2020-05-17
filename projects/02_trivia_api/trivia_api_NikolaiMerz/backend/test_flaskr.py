@@ -165,7 +165,37 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
         self.assertEqual(data['success'], False)
 
-    def test_play_quiz(self)
+    def test_play_quiz(self):
+        request_body={
+            'previous_questions': [1,2,3],
+            'quiz_category': {
+                'id' : 3,
+                'type': 'Test'
+            }
+        }
+
+        res = self.client().post('/quizzes', json = request_body)
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(data['success'], True)
+        self.assertTrue(data['question'])
+
+    def test_404_play_quiz(self):
+        request_body={
+            'previous_questions': [],
+            'quiz_category': {
+                'id' : 100,
+                'type': 'Test'
+            }
+        }
+
+        res = self.client().post('/quizzes', json = request_body)
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 404)
+        self.assertEqual(data['success'], False)
+    
 
 
 
