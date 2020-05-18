@@ -46,6 +46,11 @@ def create_app(test_config=None):
     response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
     return response
 
+
+  '''
+  ENDPOINTS
+  '''
+
   '''
   Endpoint to get all question-categories
 
@@ -142,13 +147,21 @@ def create_app(test_config=None):
   def createNewQuestion():
     abort_code = None
 
+    new_question = None
+    new_answer = None
+    new_difficulty = None
+    new_category = None
+    search = None
+
     body = request.get_json()
-    new_question = body.get('question', None)
-    new_answer = body.get('answer', None)
-    new_difficulty = body.get('difficulty', None)
-    new_category = body.get('category', None)
-    
-    search = body.get('searchTerm', None)
+
+
+    if body is not None:
+      new_question = body.get('question', None)
+      new_answer = body.get('answer', None)
+      new_difficulty = body.get('difficulty', None)
+      new_category = body.get('category', None)
+      search = body.get('searchTerm', None)
 
     if search is None:
       try:
@@ -202,6 +215,7 @@ def create_app(test_config=None):
 
   '''
   Endpoint to get all questions from a given category
+
   ''' 
   @app.route('/categories/<int:cat_id>/questions')
   def getQuestionsByCategory(cat_id):
@@ -232,20 +246,12 @@ def create_app(test_config=None):
     if abort_code:
       abort(abort_code)
 
-
   '''
-  @TODO: 
-  Create a POST endpoint to get questions to play the quiz. 
-  This endpoint should take category and previous question parameters 
-  and return a random questions within the given category, 
+  This endpoint takes category and previous question parameters 
+  and returns a random questions within the given category, 
   if provided, and that is not one of the previous questions. 
 
-  TEST: In the "Play" tab, after a user selects "All" or a category,
-  one question at a time is displayed, the user is allowed to answer
-  and shown whether they were correct or not. 
   '''
-
-
   @app.route('/quizzes', methods = ['POST'])
   def getNextQuestion():
     abort_code = None
@@ -270,8 +276,9 @@ def create_app(test_config=None):
     if abort_code:
       abort(abort_code)
 
-
-
+  '''
+  ERROR HANDLER
+  '''
 
   @app.errorhandler(404)
   def not_found(error):
