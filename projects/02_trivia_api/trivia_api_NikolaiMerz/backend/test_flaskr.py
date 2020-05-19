@@ -94,7 +94,7 @@ class TriviaTestCase(unittest.TestCase):
             'question': 'How are you?',
             'answer': 'Fine, Thanks!',
             'difficulty': 1,
-            'category': 2
+            'category': '2'
         }
 
         res = self.client().post('/questions', json = question_to_be_created)
@@ -108,7 +108,7 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(new_question.question, question_to_be_created['question'])
         self.assertEqual(new_question.answer, question_to_be_created['answer'])
         self.assertEqual(new_question.difficulty, question_to_be_created['difficulty'])
-        self.assertEqual(new_question.category, question_to_be_created['category'])
+        self.assertTrue(new_question.category)
 
     def test_422_create_new_question(self):
         question_to_be_created={
@@ -169,7 +169,7 @@ class TriviaTestCase(unittest.TestCase):
         request_body={
             'previous_questions': [1,2,3],
             'quiz_category': {
-                'id' : 3,
+                'id' : '3',
                 'type': 'Test'
             }
         }
