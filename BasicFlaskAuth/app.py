@@ -1,15 +1,16 @@
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify
 import json
 from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
 
+#https://fsnd-nikolai.eu.auth0.com/authorize?audience=image&response_type=token&client_id=rnU38QBiwo59PpBd8CH7zo4XBJ3dQxrE&redirect_uri=http://localhost:8080/login-results
 
 app = Flask(__name__)
 
-AUTH0_DOMAIN = @TODO_REPLACE_WITH_YOUR_DOMAIN
+AUTH0_DOMAIN = 'fsnd-nikolai.eu.auth0.com'
 ALGORITHMS = ['RS256']
-API_AUDIENCE = @TODO_REPLACE_WITH_YOUR_API_AUDIENCE
+API_AUDIENCE = 'image'
 
 
 class AuthError(Exception):
@@ -105,20 +106,43 @@ def verify_decode_jwt(token):
             }, 400)
 
 
-def requires_auth(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        token = get_token_auth_header()
-        try:
-            payload = verify_decode_jwt(token)
-        except:
-            abort(401)
-        return f(payload, *args, **kwargs)
+def check_permissions(permission, payload):
+    if 'permissions' not in payload:
+        abort(400)
+    
+    if permission not in payload['permissions']:
+        abort(403)
+        
+    return True
 
-    return wrapper
+def requires_auth(permission=''):
+    def requires_auth_decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = get_token_auth_header()
+            try:
+                payload = verify_decode_jwt(token)
+            except:
+                abort(401)
 
-@app.route('/headers')
-@requires_auth
-def headers(payload):
-    print(payload)
-    return 'Access Granted'
+            check_permissions(permission, payload)
+            return f(payload, *args, **kwargs)
+
+        return wrapper
+    return requires_auth_decorator
+
+
+@app.route('/image')
+@requires_auth('get:images')
+def images(jwt):
+    # @TODO unpack the request header
+    print(jwt)
+    return 'not implemented'
+
+@app.errorhandler(AuthError)
+def auth_error(e):
+    return jsonify({
+        "success": False,
+        "error": e.status_code,
+        "message": e.error
+    }), e.status_code
