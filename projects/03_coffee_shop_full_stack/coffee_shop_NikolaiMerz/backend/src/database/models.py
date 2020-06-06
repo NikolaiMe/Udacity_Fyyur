@@ -18,6 +18,7 @@ def setup_db(app):
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.app = app
     db.init_app(app)
+    return db
 
 '''
 db_drop_and_create_all()
@@ -37,10 +38,14 @@ class Drink(db.Model):
     # Autoincrementing, unique primary key
     id = Column(Integer().with_variant(Integer, "sqlite"), primary_key=True)
     # String Title
-    title = Column(String(80), unique=True)
+    title = Column(String(80), unique=False)
     # the ingredients blob - this stores a lazy json blob
     # the required datatype is [{'color': string, 'name':string, 'parts':number}]
     recipe =  Column(String(180), nullable=False)
+
+    def __init__(self, title, recipe):
+        self.title = title
+        self.recipe = recipe
 
     '''
     short()

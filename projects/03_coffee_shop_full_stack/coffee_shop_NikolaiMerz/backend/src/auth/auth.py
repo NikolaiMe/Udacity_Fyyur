@@ -1,5 +1,5 @@
 import json
-from flask import request, _request_ctx_stack
+from flask import request, _request_ctx_stack, abort, jsonify
 from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
@@ -73,7 +73,10 @@ def check_permissions(permission, payload):
         abort(400)
     
     if permission not in payload['permissions']:
-        abort(403)
+        raise AuthError({
+                'code': 'invalid_header',
+                'description': r"You don't have the permission to access the requested resource."
+            }, 403)
         
     return True
 
